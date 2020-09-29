@@ -1,12 +1,13 @@
+PREFIX?=/opt/mingw32ce/bin
 
-CC=/opt/mingw32ce/bin/arm-mingw32ce-gcc
-CXX=/opt/mingw32ce/bin/arm-mingw32ce-g++
-LD=/opt/mingw32ce/bin/arm-mingw32ce-g++
-STRIP=/opt/mingw32ce/bin/arm-mingw32ce-strip
-DLLTOOL=/opt/mingw32ce/bin/arm-mingw32ce-dlltool
-AS=/opt/mingw32ce/bin/arm-mingw32ce-as
-NM=/opt/mingw32ce/bin/arm-mingw32ce-nm
-WINDRES=/opt/mingw32ce/bin/arm-mingw32ce-windres
+CC=$(PREFIX)/bin/arm-mingw32ce-gcc
+CXX=$(PREFIX)/bin/arm-mingw32ce-g++
+LD=$(PREFIX)/bin/arm-mingw32ce-g++
+STRIP=$(PREFIX)/bin/arm-mingw32ce-strip
+DLLTOOL=$(PREFIX)/bin/arm-mingw32ce-dlltool
+AS=$(PREFIX)/bin/arm-mingw32ce-as
+NM=$(PREFIX)/bin/arm-mingw32ce-nm
+WINDRES=$(PREFIX)/bin/arm-mingw32ce-windres
 
 OUTPUT=BrainLILO.dll BrainLILODrv.dll BrainLILO.exe 
 
