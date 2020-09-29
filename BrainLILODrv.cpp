@@ -70,6 +70,47 @@ typedef LPVOID (*AllocPhysMemProc)(DWORD,DWORD,DWORD,DWORD,PULONG);
 
 typedef void (*NKForceCleanBootProc)(BOOL);
 
+//UART
+#define UART_BASE_ADDR 0x80074000
+unsigned int *UARTMappedAddr;
+
+static serialout(char text){
+	*UARTMappedAddr=(unsigned int)text;
+	return;
+}
+
+static void print(char *string) {
+    do {
+    	serialout(*string);
+        string++;
+    } while (*string != '\0');
+}
+
+static int pow(int base, int exponent) {
+    int ans = 1;
+    for (int i = 0; i < exponent; i++) {
+        ans *= base;
+    }
+    return ans;
+}
+
+static void printhex(int num) {
+unsigned char digit=8;
+        print("0x");
+        while (digit) {
+            int weight = pow(16, digit - 1);
+            int ans = num / weight;
+        	if (ans < 10){
+        		serialout('0' + ans);
+        	}
+        	else{
+                serialout('A' + ans - 10);
+        	}
+            num -= ans * weight;
+            digit--;
+        }
+}
+
 static void disableInterrupts(){
     asm volatile("mrs	r0, cpsr\n"
         "orr	r0,r0,#0x80\n"
@@ -110,10 +151,11 @@ static void EDNA2_physicalInvoker(){
 
 static void EDNA2_installPhysicalInvoker(){
 	void *ptr=(void *)0xa8000000;
-	wchar_t buf[256];
-	swprintf(buf, L"ResetKit: copying to 0x%08x from 0x%08x\n",
-			 (int)(ptr), (int)(&EDNA2_physicalInvoker));
-	OutputDebugString(buf);
+	print("BrainLILO: Invoker copying to ",1);
+	printhex((int)(ptr),1);
+	print(" from ",1);
+	printhex((int)(&EDNA2_physicalInvoker),1);
+	print("\n",1);
 	memcpy(ptr, (const void *)&EDNA2_physicalInvoker, 64*4);
 	//clearCache();
 }
@@ -126,12 +168,14 @@ static void EDNA2_runPhysicalInvoker(unsigned long bootloaderphysaddr,DWORD size
 				 "mrc	p15,0,r0,c1,c0,0\n" // read ctrl regs
 				 "bic	r0, r0, #8192\n" // reset vector to lower
 				 "mcr	p15,0,r0,c1,c0,0\n" // write ctrl regs
-				 
-				 "mrc	p15,0,r10,c1,c0,0\n" // read ctrl regs
-				 "bic	r10, r10, #5\n" // disable MMU/DCache
-				 "mcr	p15,0,r10,c1,c0,0\n" // write ctrl regs
 	);
+	print("BrainLILO: U-Boot copying to ");
+	printhex(0x40002000);
+	print(" from ");
+	printhex((int)(bootloaderphysaddr));
+	print("\n");
 	for(unsigned int i=0;i<size;i++)*((char *)(0x40002000+i))=*((char *)(bootloaderphysaddr+i));
+	print("BrainLILO: U-Boot copied. Jump!\n");
 	asm volatile("ldr	r0, =0x0000\n"
 				 "ldr	r1, =0x0000\n"
 				 "ldr	r2, =0x0000\n"
@@ -142,6 +186,10 @@ static void EDNA2_runPhysicalInvoker(unsigned long bootloaderphysaddr,DWORD size
 				 "ldr	r7, =0x0000\n"
 				 "ldr	r8, =0x40002000\n"
 				 "ldr	r9, =0x0000\n"
+						 
+				 "mrc	p15,0,r10,c1,c0,0\n" // read ctrl regs
+				 "bic	r10, r10, #5\n" // disable MMU/DCache
+				 "mcr	p15,0,r10,c1,c0,0\n" // write ctrl regs
 				 "swi	#0\n" // jump!
                  );
 	
@@ -151,12 +199,11 @@ static void EDNA2_runPhysicalInvoker(unsigned long bootloaderphysaddr,DWORD size
 
 __attribute__((noreturn))
 static DWORD EDNA2_callKernelEntryPoint(unsigned long bootloaderphysaddr,DWORD size){
-	OutputDebugString(L"BrainLILO: disabling interrupts");
+	print(L"BrainLILO: disabling interrupts\n");
     disableInterrupts();
-	OutputDebugString(L"BrainLILO: injecting code to internal ram");
+	print(L"BrainLILO: injecting code to internal ram\n");
 	EDNA2_installPhysicalInvoker();
-	OutputDebugString(L"BrainLILO: invoking");
-	Sleep(100);
+	print(L"BrainLILO: invoking\n");
 	EDNA2_runPhysicalInvoker(bootloaderphysaddr,size);
 }
 
@@ -172,19 +219,19 @@ static bool doLinux(){
 
 	dll=LoadLibrary(TEXT("COREDLL.DLL"));
 	if (dll == NULL) {
-		OutputDebugString(L"Cant load DLL");
+		print(L"Cant load DLL\n");
 		return false;
 	}
 	AllocPhysMem=(AllocPhysMemProc)GetProcAddress(dll,TEXT("AllocPhysMem"));
 	if (AllocPhysMem == NULL) {
-		OutputDebugString(L"Cant load AllocPhysMem function");
+		print(L"Cant load AllocPhysMem function\n");
 		return false;
 	}
 	
-	OutputDebugString(L"BrainLILO: loading bootloader.");
+	print(L"BrainLILO: loading bootloader.\n");
 	hFile = CreateFile(bootloaderFileName , GENERIC_READ , 0 , NULL ,OPEN_EXISTING , FILE_ATTRIBUTE_NORMAL , NULL);
 	if (hFile == INVALID_HANDLE_VALUE) {
-		OutputDebugString(L"Cant load bootloader");
+		print(L"Cant load bootloader\n");
 		return false;
 	}
 	bootloaderdata  = (char *)malloc(GetFileSize(hFile , NULL));
@@ -192,11 +239,13 @@ static bool doLinux(){
 	CloseHandle(hFile);
 
 	bootloaderptr=(PULONG)AllocPhysMem(wReadSize,PAGE_EXECUTE_READWRITE,0,0,&bootloaderphysaddr);
-	wchar_t buf[256];
-	swprintf(buf, L"BrainLILO: copying bootloader to 0x%08x from 0x%08x\n",(int)(bootloaderptr), (int)(bootloaderdata));
-	OutputDebugString(buf);
+	print("BrainLILO: preloading bootloader to ");
+	printhex((int)(bootloaderptr));
+	print(" from ");
+	printhex((int)(bootloaderdata));
+	print("\n");
 	memcpy(bootloaderptr,bootloaderdata,wReadSize);
-	OutputDebugString(L"BrainLILO: bootloader copied");
+	print(L"BrainLILO: bootloader preloaded\n");
 	free(bootloaderdata);
 	FreeLibrary(dll);
 	EDNA2_callKernelEntryPoint(bootloaderphysaddr,wReadSize);
@@ -239,7 +288,7 @@ extern "C" BRAINLILODRV_API DWORD LIN_Seek(DWORD handle, long lDistance, DWORD d
 
 
 extern "C" BRAINLILODRV_API void LIN_PowerUp(void){
-	OutputDebugString(L"BrainLILO: resuming.");
+	print(L"BrainLILO: resuming.");
 	
 }
 
@@ -287,7 +336,7 @@ extern "C" BOOL APIENTRY DllMainCRTStartup( HANDLE hModule,
     switch (ul_reason_for_call)
 	{
 		case DLL_PROCESS_ATTACH:
-	case DLL_THREAD_ATTACH:
+		case DLL_THREAD_ATTACH:
 			KernelIoControl=(KernelIoControlProc)
 			GetProcAddress(LoadLibrary(L"COREDLL"),
 						   L"KernelIoControl");
@@ -299,6 +348,11 @@ extern "C" BOOL APIENTRY DllMainCRTStartup( HANDLE hModule,
             FileSystemPowerFunction=(FileSystemPowerFunctionProc)
 			GetProcAddress(LoadLibrary(L"COREDLL"),
 						   L"FileSystemPowerFunction");
+		
+			UARTMappedAddr=MmMapIoSpace(UART_BASE_ADDR,0x48,FALSE);//Map to Virtual Addr
+		*(UARTMappedAddr+0x38)=0;//Interrupt Disable
+		*(UARTMappedAddr+0x30)=0b0100000100000001;//RTS Hardware Flow Control, Transmit, UART Enable
+		
             
 		case DLL_THREAD_DETACH:
 		case DLL_PROCESS_DETACH:
