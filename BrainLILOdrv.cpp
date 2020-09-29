@@ -127,7 +127,12 @@ static void EDNA2_runPhysicalInvoker(unsigned long bootloaderphysaddr,DWORD size
 				 "bic	r0, r0, #8192\n" // reset vector to lower
 				 "mcr	p15,0,r0,c1,c0,0\n" // write ctrl regs
 				 
-				 "ldr	r0, =0x0000\n"
+				 "mrc	p15,0,r10,c1,c0,0\n" // read ctrl regs
+				 "bic	r10, r10, #5\n" // disable MMU/DCache
+				 "mcr	p15,0,r10,c1,c0,0\n" // write ctrl regs
+	);
+	for(unsigned int i=0;i<size;i++)*((char *)(0x40002000+i))=*((char *)(bootloaderphysaddr+i));
+	asm volatile("ldr	r0, =0x0000\n"
 				 "ldr	r1, =0x0000\n"
 				 "ldr	r2, =0x0000\n"
 				 "ldr	r3, =0x0000\n"
@@ -137,13 +142,7 @@ static void EDNA2_runPhysicalInvoker(unsigned long bootloaderphysaddr,DWORD size
 				 "ldr	r7, =0x0000\n"
 				 "ldr	r8, =0x40002000\n"
 				 "ldr	r9, =0x0000\n"
-				 
-				 "mrc	p15,0,r10,c1,c0,0\n" // read ctrl regs
-				 "bic	r10, r10, #5\n" // disable MMU/DCache
-				 "mcr	p15,0,r10,c1,c0,0\n" // write ctrl regs
-	);
-	for(unsigned int i=0;i<size;i++)*((char *)(0x40002000+i))=*((char *)(bootloaderphysaddr+i));
-	asm volatile("swi	#0\n" // jump!
+				 "swi	#0\n" // jump!
                  );
 	
 	// never reach here
@@ -157,6 +156,7 @@ static DWORD EDNA2_callKernelEntryPoint(unsigned long bootloaderphysaddr,DWORD s
 	OutputDebugString(L"BrainLILO: injecting code to internal ram");
 	EDNA2_installPhysicalInvoker();
 	OutputDebugString(L"BrainLILO: invoking");
+	Sleep(100);
 	EDNA2_runPhysicalInvoker(bootloaderphysaddr,size);
 }
 
@@ -199,7 +199,6 @@ static bool doLinux(){
 	OutputDebugString(L"BrainLILO: bootloader copied");
 	free(bootloaderdata);
 	FreeLibrary(dll);
-	Sleep(100);
 	EDNA2_callKernelEntryPoint(bootloaderphysaddr,wReadSize);
 	return true;
 }
