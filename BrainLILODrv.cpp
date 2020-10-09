@@ -68,7 +68,7 @@ static FileSystemPowerFunctionProc FileSystemPowerFunction;
 
 typedef LPVOID (*AllocPhysMemProc)(DWORD,DWORD,DWORD,DWORD,PULONG);
 
-DWORD wReadSize;
+DWORD FileSize;
 unsigned long bootloaderphysaddr;
 
 static void disableInterrupts(){
@@ -129,7 +129,7 @@ static void EDNA2_runPhysicalInvoker(){
 				 "bic	r0, r0, #5\n" // disable MMU/DCache
 				 "mcr	p15,0,r0,c1,c0,0\n" // write ctrl regs
                  );
-	for(DWORD i=0;i<wReadSize;i++)*((char*)(0x40100000+i))=*((char*)bootloaderphysaddr+i);
+	for(DWORD i=0;i<FileSize;i++)*((char*)(0x40100000+i))=*((char*)bootloaderphysaddr+i);
 	asm volatile("ldr	r0, =0x0000\n"
 				 "ldr	r1, =0x0000\n"
 				 "ldr	r2, =0x0000\n"
@@ -161,10 +161,11 @@ static DWORD EDNA2_callKernelEntryPoint(){
 static bool doLinux(){
 	TCHAR bootloaderFileName[128]=TEXT("\\Storage Card\\loader\\u-boot.bin");
 	HANDLE hFile;
-	char *bootloaderptr;
+	LPVOID bootloaderptr;
 	wchar_t buf[256];
 	HINSTANCE dll;
 	AllocPhysMemProc AllocPhysMem;
+	DWORD wReadSize;
 
 	dll=LoadLibrary(TEXT("COREDLL.DLL"));
 	if (dll == NULL) {
@@ -187,13 +188,16 @@ static bool doLinux(){
 	swprintf(buf, L"BrainLILO: Bootloader file handle 0x%08x\n",(int)(hFile));
 	OutputDebugString(buf);
 	
+	FileSize=GetFileSize(hFile , NULL);
+	swprintf(buf, L"BrainLILO: Bootloader file size %d Byte\n",FileSize);
+	OutputDebugString(buf);
 	
-	bootloaderptr=(char*)AllocPhysMem(GetFileSize(hFile , NULL),PAGE_EXECUTE_READWRITE,0,0,&bootloaderphysaddr);
+	bootloaderptr=AllocPhysMem(FileSize,PAGE_EXECUTE_READWRITE,0,0,&bootloaderphysaddr);
 	swprintf(buf, L"BrainLILO: Allocated preload memory Virtual:%p Physical:%p\n",bootloaderptr,bootloaderphysaddr);
 	OutputDebugString(buf);
 	
 	OutputDebugString(L"BrainLILO: Copying bootloader to allocated virtual memory...");
-	ReadFile(hFile , bootloaderptr , GetFileSize(hFile , NULL) , &wReadSize , NULL);
+	ReadFile(hFile , bootloaderptr , FileSize , &wReadSize , NULL);
 	OutputDebugString(L"BrainLILO: Bootloader copied! Closing file handle...");
 	CloseHandle(hFile);
 	

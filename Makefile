@@ -9,7 +9,7 @@ AS=$(PREFIX)/bin/arm-mingw32ce-as
 NM=$(PREFIX)/bin/arm-mingw32ce-nm
 WINDRES=$(PREFIX)/bin/arm-mingw32ce-windres
 
-OUTPUT=BrainLILO.dll BrainLILODrv.dll BrainLILO.exe 
+OUTPUT=BrainLILO.dll BrainLILODrv.dll BrainLILO.exe MyJITDebugger.exe 
 
 CXXFLAGS= -DEV_PLATFORM_WIN32 -DUNICODE -D_UNICODE -DEV_UNSAFE_SWPRINTF -mwin32 \
 -O0 -mcpu=arm926ej-s -D_WIN32_WCE=0x600 -D_LARGEFILE_SOURCE=1 -D_LARGEFILE64_SOURCE=1 \
@@ -46,3 +46,6 @@ BrainLILO.exe:	bootloader.cpp
 				$(CXX) bootloader.cpp -o BrainLILO.exe $(CXXFLAGS)
 				$(STRIP) BrainLILO.exe
 
+MyJITDebugger.exe:	dummy.cpp
+				$(CXX) dummy.cpp -o MyJITDebugger.exe $(CXXFLAGS)
+				$(STRIP) MyJITDebugger.exe

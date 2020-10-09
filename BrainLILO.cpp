@@ -126,10 +126,32 @@ static void loadDriverIfNeeded(){
     HANDLE driver=NULL;
 	
     wchar_t driverPath[1024];
-    getThisDllDirectoryPath(driverPath);
-    wcscat(driverPath, L"\\BrainLILODrv.dll");
+	
+	getThisDllDirectoryPath(driverPath);
+    wcscat(driverPath, L"\\MyJITDebugger.exe");
 	
 	TCHAR newDriverPath[128];
+	wcscpy(newDriverPath,L"\\Windows\\MyJITDebugger.exe");
+	
+    {
+        wchar_t buf[1024];
+        swprintf(buf, L"BrainLILO: copying \"%ls\" to \"%ls\"",
+                 driverPath, newDriverPath);
+        OutputDebugString(buf);
+    }
+	
+	if(!CopyFile(driverPath,newDriverPath, FALSE)){
+	
+		
+		if(GetFileAttributes(newDriverPath)==(DWORD)-1){
+			OutputDebugString(L"BrainLILO: failed to copy");
+			return;
+		}
+        
+	}
+	
+    getThisDllDirectoryPath(driverPath);
+    wcscat(driverPath, L"\\BrainLILODrv.dll");
 	wcscpy(newDriverPath,L"\\Windows\\BrainLILODrv.dll");
 	
     {
