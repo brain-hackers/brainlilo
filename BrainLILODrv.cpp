@@ -68,9 +68,6 @@ static FileSystemPowerFunctionProc FileSystemPowerFunction;
 
 typedef LPVOID (*AllocPhysMemProc)(DWORD,DWORD,DWORD,DWORD,PULONG);
 
-DWORD FileSize;
-unsigned long bootloaderphysaddr;
-
 static void disableInterrupts(){
     asm volatile("mrs	r0, cpsr\n"
         "orr	r0,r0,#0x80\n"
@@ -126,10 +123,11 @@ static void EDNA2_runPhysicalInvoker(){
 	asm volatile("msr	cpsr_c, #211\n" // to supervisor mode
 				 "mrc	p15,0,r0,c1,c0,0\n" // read ctrl regs
 				 "bic	r0, r0, #8192\n" // reset vector to lower
-				 "bic	r0, r0, #5\n" // disable MMU/DCache
 				 "mcr	p15,0,r0,c1,c0,0\n" // write ctrl regs
                  );
-	for(DWORD i=0;i<FileSize;i++)*((char*)(0x40100000+i))=*((char*)bootloaderphysaddr+i);
+	
+		for(int i=0;i<0x100000;i++)*((char *)(0x80200000+i))=*((char *)(0x80000000+i));
+				 
 	asm volatile("ldr	r0, =0x0000\n"
 				 "ldr	r1, =0x0000\n"
 				 "ldr	r2, =0x0000\n"
@@ -138,9 +136,12 @@ static void EDNA2_runPhysicalInvoker(){
 				 "ldr	r5, =0x0000\n"
 				 "ldr	r6, =0x0000\n"
 				 "ldr	r7, =0x0000\n"
-				 "ldr	r8, =0x40100000\n"
+				 "ldr	r8, =0x40200000\n"
 				 "ldr	r9, =0x0000\n"
-		
+				 
+				 "mrc	p15,0,r10,c1,c0,0\n" // read ctrl regs
+				 "bic	r10, r10, #5\n" // disable MMU/DCache
+				 "mcr	p15,0,r10,c1,c0,0\n" // write ctrl regs
 				 "swi	#0\n" // jump!
                  );
 	
@@ -164,21 +165,8 @@ static bool doLinux(){
 	LPVOID bootloaderptr;
 	wchar_t buf[256];
 	HINSTANCE dll;
-	AllocPhysMemProc AllocPhysMem;
-	DWORD wReadSize;
+	DWORD wReadSize,FileSize;
 
-	dll=LoadLibrary(TEXT("COREDLL.DLL"));
-	if (dll == NULL) {
-		OutputDebugString(L"BrainLILO: Cant load COREDLL.DLL");
-		return false;
-	}
-	
-	AllocPhysMem=(AllocPhysMemProc)GetProcAddress(dll,TEXT("AllocPhysMem"));
-	if (AllocPhysMem == NULL) {
-		OutputDebugString(L"BrainLILO: Cant load AllocPhysMem function");
-		return false;
-	}
-	
 	OutputDebugString(L"BrainLILO: Opening Bootloader file...");
 	hFile = CreateFile(bootloaderFileName , GENERIC_READ , 0 , NULL ,OPEN_EXISTING , FILE_ATTRIBUTE_NORMAL , NULL);
 	if (hFile == INVALID_HANDLE_VALUE) {
@@ -192,12 +180,12 @@ static bool doLinux(){
 	swprintf(buf, L"BrainLILO: Bootloader file size %d Byte\n",FileSize);
 	OutputDebugString(buf);
 	
-	bootloaderptr=AllocPhysMem(FileSize,PAGE_EXECUTE_READWRITE,0,0,&bootloaderphysaddr);
-	swprintf(buf, L"BrainLILO: Allocated preload memory Virtual:%p Physical:%p\n",bootloaderptr,bootloaderphysaddr);
-	OutputDebugString(buf);
 	
-	OutputDebugString(L"BrainLILO: Copying bootloader to allocated virtual memory...");
-	ReadFile(hFile , bootloaderptr , FileSize , &wReadSize , NULL);
+	OutputDebugString(L"BrainLILO: Preloading bootloader to 0x80000000...");
+	if (!ReadFile(hFile , (void *)0x80000000 , FileSize , &wReadSize , NULL)) {
+		OutputDebugString(L"Cant read bootloader");
+		return false;
+	}
 	OutputDebugString(L"BrainLILO: Bootloader copied! Closing file handle...");
 	CloseHandle(hFile);
 	
