@@ -68,6 +68,8 @@ static FileSystemPowerFunctionProc FileSystemPowerFunction;
 
 typedef LPVOID (*AllocPhysMemProc)(DWORD,DWORD,DWORD,DWORD,PULONG);
 
+DWORD FileSize;
+
 static void disableInterrupts(){
     asm volatile("mrs	r0, cpsr\n"
         "orr	r0,r0,#0x80\n"
@@ -126,7 +128,7 @@ static void EDNA2_runPhysicalInvoker(){
 				 "mcr	p15,0,r0,c1,c0,0\n" // write ctrl regs
                  );
 	
-		for(int i=0;i<0x100000;i++)*((char *)(0x80200000+i))=*((char *)(0x80000000+i));
+		for(DWORD i=0;i<FileSize;i++)*((char *)(0xa0200000+i))=*((char *)(0xa0000000+i));
 				 
 	asm volatile("ldr	r0, =0x0000\n"
 				 "ldr	r1, =0x0000\n"
@@ -165,7 +167,7 @@ static bool doLinux(){
 	LPVOID bootloaderptr;
 	wchar_t buf[256];
 	HINSTANCE dll;
-	DWORD wReadSize,FileSize;
+	DWORD wReadSize;
 
 	OutputDebugString(L"BrainLILO: Opening Bootloader file...");
 	hFile = CreateFile(bootloaderFileName , GENERIC_READ , 0 , NULL ,OPEN_EXISTING , FILE_ATTRIBUTE_NORMAL , NULL);
@@ -181,8 +183,8 @@ static bool doLinux(){
 	OutputDebugString(buf);
 	
 	
-	OutputDebugString(L"BrainLILO: Preloading bootloader to 0x80000000...");
-	if (!ReadFile(hFile , (void *)0x80000000 , FileSize , &wReadSize , NULL)) {
+	OutputDebugString(L"BrainLILO: Preloading bootloader to 0xa0000000...");
+	if (!ReadFile(hFile , (void *)0xa0000000 , FileSize , &wReadSize , NULL)) {
 		OutputDebugString(L"Cant read bootloader");
 		return false;
 	}
