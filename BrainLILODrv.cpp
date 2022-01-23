@@ -161,9 +161,7 @@ static bool doLinux()
 {
     TCHAR bootloaderFileName[128] = TEXT("\\Storage Card\\loader\\u-boot.bin");
     HANDLE hFile;
-    LPVOID bootloaderptr;
     wchar_t buf[256];
-    HINSTANCE dll;
     DWORD wReadSize;
 
     OutputDebugString(L"BrainLILO: Opening Bootloader file...");
