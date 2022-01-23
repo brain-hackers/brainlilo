@@ -9,11 +9,11 @@
 #endif
 
 #ifdef __cplusplus
-extern "C"{
+extern "C"
+{
 #endif
- 
+
     BRAINLILO_API BOOL RKDoSoftReset();
-    
 
 #ifdef __cplusplus
 };
