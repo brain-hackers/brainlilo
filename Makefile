@@ -1,3 +1,7 @@
+VERSION_MAJOR=1
+VERSION_MINOR=0
+VERSION_PATCH=0
+
 PREFIX?=/opt/mingw32ce/bin
 
 CC=$(PREFIX)/bin/arm-mingw32ce-gcc
