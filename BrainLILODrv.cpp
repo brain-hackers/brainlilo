@@ -175,7 +175,7 @@ static void ShowMessage(std::string msg, std::string title, UINT typ)
 
 static bool doLinux()
 {
-    wchar_t wcbuf[256] = {};
+    wchar_t wcBuf[256] = {};
 
     std::ifstream iVersion;
     std::string line, model;
@@ -205,8 +205,8 @@ static bool doLinux()
     OutputDebugString(L"BrainLILO: Opening Bootloader file...");
     fn += model + ".bin";
 
-    mbstowcs(wcbuf, fn.c_str(), fn.length());
-    hUBoot = CreateFile(wcbuf, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    mbstowcs(wcBuf, fn.c_str(), fn.length());
+    hUBoot = CreateFile(wcBuf, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hUBoot == INVALID_HANDLE_VALUE)
     {
         OutputDebugString(L"Could not open the bootloader");
@@ -214,12 +214,12 @@ static bool doLinux()
         return false;
     }
 
-    swprintf(wcbuf, L"BrainLILO: Bootloader file handle 0x%08x\n", (int)(hUBoot));
-    OutputDebugString(wcbuf);
+    swprintf(wcBuf, L"BrainLILO: Bootloader file handle 0x%08x\n", (int)(hUBoot));
+    OutputDebugString(wcBuf);
 
     FileSize = GetFileSize(hUBoot, NULL);
-    swprintf(wcbuf, L"BrainLILO: Bootloader file size %d Byte\n", FileSize);
-    OutputDebugString(wcbuf);
+    swprintf(wcBuf, L"BrainLILO: Bootloader file size %d Byte\n", FileSize);
+    OutputDebugString(wcBuf);
 
     OutputDebugString(L"BrainLILO: Preloading bootloader to 0xa0000000...");
     if (!ReadFile(hUBoot, (void *)0xa0000000, FileSize, &wReadSize, NULL))
