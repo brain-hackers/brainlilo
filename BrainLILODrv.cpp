@@ -30,7 +30,10 @@
  * THE SOFTWARE.
  *
  */
+#include <fstream>
+#include <regex>
 #include <stdint.h>
+#include <stdlib.h>
 #include <windows.h>
 
 #define FSNOTIFY_POWER_OFF 1
@@ -157,35 +160,76 @@ __attribute__((noreturn)) static DWORD EDNA2_callKernelEntryPoint()
     EDNA2_runPhysicalInvoker();
 }
 
+static void ShowMessage(std::string msg, std::string title, UINT typ)
+{
+    void *bufMsg;
+    void *bufTitle;
+    bufMsg = LocalAlloc(LPTR, msg.length() * sizeof(wchar_t));
+    bufTitle = LocalAlloc(LPTR, title.length() * sizeof(wchar_t));
+    mbstowcs((wchar_t *)bufMsg, msg.c_str(), msg.length());
+    mbstowcs((wchar_t *)bufTitle, title.c_str(), title.length());
+    MessageBox(NULL, (wchar_t *)bufMsg, (wchar_t *)bufTitle, typ);
+    LocalFree(bufMsg);
+    LocalFree(bufTitle);
+}
+
 static bool doLinux()
 {
-    TCHAR bootloaderFileName[128] = TEXT("\\Storage Card\\loader\\u-boot.bin");
-    HANDLE hFile;
-    wchar_t buf[256];
+    wchar_t wcBuf[256] = {};
+
+    std::ifstream iVersion;
+    std::string line, model;
+    std::regex modelRe("[A-Z]{2}-[A-Z0-9]+");
+    std::smatch match;
+
+    std::string fn("\\Storage Card\\loader\\");
+    HANDLE hUBoot;
     DWORD wReadSize;
 
-    OutputDebugString(L"BrainLILO: Opening Bootloader file...");
-    hFile = CreateFile(bootloaderFileName, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hFile == INVALID_HANDLE_VALUE)
+    iVersion.open("\\NAND\\version.txt");
+    while (getline(iVersion, line))
     {
-        OutputDebugString(L"Cant open bootloader");
+        if (regex_search(line, match, modelRe))
+        {
+            model = match[0].str();
+            break;
+        }
+    }
+
+    if (model.length() == 0)
+    {
+        ShowMessage("Failed to match the model name", "BrainLILO", MB_ICONWARNING);
         return false;
     }
-    swprintf(buf, L"BrainLILO: Bootloader file handle 0x%08x\n", (int)(hFile));
-    OutputDebugString(buf);
 
-    FileSize = GetFileSize(hFile, NULL);
-    swprintf(buf, L"BrainLILO: Bootloader file size %d Byte\n", FileSize);
-    OutputDebugString(buf);
+    OutputDebugString(L"BrainLILO: Opening Bootloader file...");
+    fn += model + ".bin";
+
+    mbstowcs(wcBuf, fn.c_str(), fn.length());
+    hUBoot = CreateFile(wcBuf, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hUBoot == INVALID_HANDLE_VALUE)
+    {
+        OutputDebugString(L"Could not open the bootloader");
+        ShowMessage("Could not open the bootloader: " + fn, "BrainLILO", MB_ICONWARNING);
+        return false;
+    }
+
+    swprintf(wcBuf, L"BrainLILO: Bootloader file handle 0x%08x\n", (int)(hUBoot));
+    OutputDebugString(wcBuf);
+
+    FileSize = GetFileSize(hUBoot, NULL);
+    swprintf(wcBuf, L"BrainLILO: Bootloader file size %d Byte\n", FileSize);
+    OutputDebugString(wcBuf);
 
     OutputDebugString(L"BrainLILO: Preloading bootloader to 0xa0000000...");
-    if (!ReadFile(hFile, (void *)0xa0000000, FileSize, &wReadSize, NULL))
+    if (!ReadFile(hUBoot, (void *)0xa0000000, FileSize, &wReadSize, NULL))
     {
-        OutputDebugString(L"Cant read bootloader");
+        OutputDebugString(L"Could not read the bootloader");
+        ShowMessage("Could not read the bootloader", "BrainLILO", MB_ICONWARNING);
         return false;
     }
     OutputDebugString(L"BrainLILO: Bootloader copied! Closing file handle...");
-    CloseHandle(hFile);
+    CloseHandle(hUBoot);
 
     OutputDebugString(L"BrainLILO: Notifying power off to filesystems...");
     if (FileSystemPowerFunction)
