@@ -210,7 +210,7 @@ static bool doLinux()
     if (hUBoot == INVALID_HANDLE_VALUE)
     {
         OutputDebugString(L"Could not open the bootloader");
-        ShowMessage(std::string("Could not open the bootloader: ") + fn, std::string("BrainLILO"), MB_ICONWARNING);
+        ShowMessage("Could not open the bootloader: " + fn, "BrainLILO", MB_ICONWARNING);
         return false;
     }
 
@@ -225,7 +225,7 @@ static bool doLinux()
     if (!ReadFile(hUBoot, (void *)0xa0000000, FileSize, &wReadSize, NULL))
     {
         OutputDebugString(L"Could not read the bootloader");
-        ShowMessage(std::string("Could not read the bootloader"), std::string("BrainLILO"), MB_ICONWARNING);
+        ShowMessage("Could not read the bootloader", "BrainLILO", MB_ICONWARNING);
         return false;
     }
     OutputDebugString(L"BrainLILO: Bootloader copied! Closing file handle...");
