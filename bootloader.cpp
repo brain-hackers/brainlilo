@@ -48,12 +48,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPTSTR lpCmd, int nShow)
     HINSTANCE lib = LoadLibrary(L"BrainLILO");
     if (!lib)
     {
-        wchar_t buf[256];
-        swprintf(buf,
-                 L"Cannot perform a soft reset.\n"
-                 L"BrainLILO was not loaded (0x%08x).",
-                 GetLastError());
-        showAlertWarning(buf, L"Error");
         return 1;
     }
 
@@ -61,23 +55,11 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPTSTR lpCmd, int nShow)
     RKDoSoftResetProc RKDoSoftReset = (RKDoSoftResetProc)GetProcAddress(lib, L"RKDoSoftReset");
     if (!RKDoSoftReset)
     {
-        wchar_t buf[256];
-        swprintf(buf,
-                 L"Cannot perform a soft reset.\n"
-                 L"RKDoSoftReset not found (0x%08x).",
-                 GetLastError());
-        showAlertWarning(buf, L"Error");
         return 1;
     }
 
     if (!RKDoSoftReset())
     {
-        wchar_t buf[256];
-        swprintf(buf,
-                 L"Cannot perform a soft reset.\n"
-                 L"Operation failed (0x%08x).",
-                 GetLastError());
-        showAlertWarning(buf, L"Error");
         return 1;
     }
     return 0;
