@@ -175,8 +175,7 @@ static void ShowMessage(std::string msg, std::string title, UINT typ)
 
 static bool doLinux()
 {
-    wchar_t wcbuf[256];
-    int i;
+    wchar_t wcbuf[256] = {};
 
     std::ifstream iVersion;
     std::string line, model;
@@ -186,11 +185,6 @@ static bool doLinux()
     std::string fn("\\Storage Card\\loader\\");
     HANDLE hUBoot;
     DWORD wReadSize;
-
-    for (i = 0; i < int(sizeof(wcbuf) / sizeof(wcbuf[0])); i++)
-    {
-        wcbuf[i] = '\0';
-    }
 
     iVersion.open("\\NAND\\version.txt");
     while (getline(iVersion, line))
