@@ -85,7 +85,7 @@ static void outputDebugMessage(const wchar_t *format, ...)
     va_end(args);
 
     OutputDebugString(buffer);
-    ExtTextOut(GetDC(NULL), 0, row * 12, ETO_CLIPPED, &rcScreen,
+    ExtTextOut(GetDC(NULL), 0, row * 14, ETO_CLIPPED, &rcScreen,
         buffer, wcslen(buffer), NULL);
 
     row++;
