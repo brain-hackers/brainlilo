@@ -180,6 +180,8 @@ __attribute__((noreturn)) static DWORD EDNA2_callKernelEntryPoint()
     outputDebugMessage(L"BrainLILO: injecting code to internal ram");
     EDNA2_installPhysicalInvoker();
     outputDebugMessage(L"BrainLILO: invoking");
+    Sleep(1000);
+
     EDNA2_runPhysicalInvoker();
 }
 
