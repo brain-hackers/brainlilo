@@ -44,28 +44,10 @@
 #include "BrainLILODrv.h"
 #include "models.h"
 
-#define FILE_DEVICE_POWER FILE_DEVICE_ACPI
-
-#define IOCTL_POWER_CAPABILITIES CTL_CODE(FILE_DEVICE_POWER, 0x400, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_POWER_GET CTL_CODE(FILE_DEVICE_POWER, 0x401, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_POWER_SET CTL_CODE(FILE_DEVICE_POWER, 0x402, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_POWER_QUERY CTL_CODE(FILE_DEVICE_POWER, 0x403, METHOD_BUFFERED, FILE_ANY_ACCESS)
-
-typedef BOOL (*KernelIoControlProc)(DWORD dwIoControlCode, LPVOID lpInBuf, DWORD nInBufSize, LPVOID lpOutBuf,
-                                    DWORD nOutBufSize, LPDWORD lpBytesReturned);
-static KernelIoControlProc KernelIoControl;
-
-typedef LARGE_INTEGER PHYSICAL_ADDRESS, *PPHYSICAL_ADDRESS;
-
-typedef PVOID (*MmMapIoSpaceProc)(PHYSICAL_ADDRESS, ULONG, BOOL);
-static MmMapIoSpaceProc MmMapIoSpace;
-
 typedef void (*FileSystemPowerFunctionProc)(DWORD);
 static FileSystemPowerFunctionProc FileSystemPowerFunction;
 
-typedef LPVOID (*AllocPhysMemProc)(DWORD, DWORD, DWORD, DWORD, PULONG);
-
-DWORD FileSize;
+DWORD fileSize;
 int row;
 int screenW;
 int screenH;
@@ -149,7 +131,7 @@ __attribute__((noreturn)) static void EDNA2_runPhysicalInvoker()
                  "mcr	p15,0,r0,c1,c0,0\n" // write ctrl regs
     );
 
-    for (DWORD i = 0; i < FileSize; i++)
+    for (DWORD i = 0; i < fileSize; i++)
         *((char *)(0xa0200000 + i)) = *((char *)(0xa0000000 + i));
 
     asm volatile("ldr	r0, =0x0000\n"
@@ -214,53 +196,53 @@ static bool doLinux()
 
     if (model.length() == 0)
     {
-        outputDebugMessage(L"BrainLILO: Failed to match the model name");
+        outputDebugMessage(L"BrainLILO: failed to match the model name");
         MessageBox(NULL, L"Failed to match the model name", L"BrainLILO", MB_ICONWARNING);
         return false;
     }
 
-    outputDebugMessage(L"BrainLILO: Internal model name: %s", model.c_str());
+    outputDebugMessage(L"BrainLILO: internal model name: %s", model.c_str());
 
     auto iter = models.find(model);
     if (iter != models.end())
     {
         model = iter->second;
     } else {
-        outputDebugMessage(L"BrainLILO: Internal model name %s is unknown, falling back to u-boot.bin", model.c_str());
+        outputDebugMessage(L"BrainLILO: internal model name %s is unknown, falling back to u-boot.bin", model.c_str());
         model = L"u-boot.bin";
     }
 
     fn += model;
-    outputDebugMessage(L"BrainLILO: Opening Bootloader file: %s", fn.c_str());
+    outputDebugMessage(L"BrainLILO: opening Bootloader file: %s", fn.c_str());
 
     hUBoot = CreateFile(fn.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hUBoot == INVALID_HANDLE_VALUE)
     {
-        outputDebugMessage(L"BrainLILO: Could not open the bootloader: %s", fn.c_str());
+        outputDebugMessage(L"BrainLILO: could not open the bootloader: %s", fn.c_str());
         ShowMessage(L"Could not open the bootloader: " + fn, L"BrainLILO", MB_ICONWARNING);
         return false;
     }
 
-    outputDebugMessage(L"BrainLILO: Bootloader file handle 0x%p", hUBoot);
+    outputDebugMessage(L"BrainLILO: bootloader file handle 0x%p", hUBoot);
 
-    FileSize = GetFileSize(hUBoot, NULL);
-    outputDebugMessage(L"BrainLILO: Bootloader file size %d Byte", FileSize);
+    fileSize = GetFileSize(hUBoot, NULL);
+    outputDebugMessage(L"BrainLILO: bootloader file size %d Byte", fileSize);
 
-    outputDebugMessage(L"BrainLILO: Preloading bootloader to 0xa0000000...");
-    if (!ReadFile(hUBoot, (void *)0xa0000000, FileSize, &wReadSize, NULL))
+    outputDebugMessage(L"BrainLILO: preloading bootloader to 0x%p...", 0xa0000000);
+    if (!ReadFile(hUBoot, (void *)0xa0000000, fileSize, &wReadSize, NULL))
     {
-        outputDebugMessage(L"Could not read the bootloader");
+        outputDebugMessage(L"BrainLILO: could not read the bootloader");
         ShowMessage(L"Could not read the bootloader", L"BrainLILO", MB_ICONWARNING);
         return false;
     }
-    outputDebugMessage(L"BrainLILO: Bootloader copied! Closing file handle...");
+    outputDebugMessage(L"BrainLILO: bootloader copied! Closing file handle...");
     CloseHandle(hUBoot);
 
-    outputDebugMessage(L"BrainLILO: Notifying power off to filesystems...");
+    outputDebugMessage(L"BrainLILO: notifying power off to filesystems...");
     if (FileSystemPowerFunction)
         FileSystemPowerFunction(FSNOTIFY_POWER_OFF);
 
-    outputDebugMessage(L"BrainLILO: Starting bootloader call sequence...");
+    outputDebugMessage(L"BrainLILO: starting bootloader call sequence...");
     EDNA2_callKernelEntryPoint();
     return true;
 }
@@ -354,10 +336,6 @@ extern "C" BOOL APIENTRY DllMainCRTStartup(HANDLE hModule, DWORD ul_reason_for_c
     {
     case DLL_PROCESS_ATTACH:
     case DLL_THREAD_ATTACH:
-        KernelIoControl = (KernelIoControlProc)GetProcAddress(LoadLibrary(L"COREDLL"), L"KernelIoControl");
-
-        MmMapIoSpace = (MmMapIoSpaceProc)GetProcAddress(LoadLibrary(L"CEDDK"), L"MmMapIoSpace");
-
         FileSystemPowerFunction =
             (FileSystemPowerFunctionProc)GetProcAddress(LoadLibrary(L"COREDLL"), L"FileSystemPowerFunction");
 
