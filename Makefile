@@ -2,7 +2,7 @@ VERSION_MAJOR=2
 VERSION_MINOR=0
 VERSION_PATCH=0
 
-PREFIX?=/opt/mingw32ce/bin
+PREFIX?=/opt/cegcc
 
 CC=$(PREFIX)/bin/arm-mingw32ce-gcc
 CXX=$(PREFIX)/bin/arm-mingw32ce-g++
