@@ -65,6 +65,31 @@ static FileSystemPowerFunctionProc FileSystemPowerFunction;
 typedef LPVOID (*AllocPhysMemProc)(DWORD, DWORD, DWORD, DWORD, PULONG);
 
 DWORD FileSize;
+int row;
+int screenW;
+int screenH;
+
+static void outputDebugMessage(const wchar_t *format, ...)
+{
+    wchar_t buffer[256] = {0};
+    va_list args;
+    RECT rcScreen = {
+        .left = 0,
+        .top = 0,
+        .right = screenW,
+        .bottom = screenH
+    };
+
+    va_start(args, format);
+    vswprintf(buffer, format, args);
+    va_end(args);
+
+    OutputDebugString(buffer);
+    ExtTextOut(GetDC(NULL), 0, row * 12, ETO_CLIPPED, &rcScreen,
+        buffer, wcslen(buffer), NULL);
+
+    row++;
+}
 
 static void disableInterrupts()
 {
@@ -108,10 +133,8 @@ static void EDNA2_physicalInvoker()
 static void EDNA2_installPhysicalInvoker()
 {
     void *ptr = (void *)0xa8000000;
-    wchar_t buf[256];
-    swprintf(buf, L"BrainLILO: copying PhysicalInvoker to 0x%08x from 0x%08x\n", (int)(ptr),
-             (int)(&EDNA2_physicalInvoker));
-    OutputDebugString(buf);
+    outputDebugMessage(L"BrainLILO: copying PhysicalInvoker to 0x%p from 0x%p\n",
+        ptr, &EDNA2_physicalInvoker);
     memcpy(ptr, (const void *)&EDNA2_physicalInvoker, 64 * 4);
     // clearCache();
 }
@@ -152,11 +175,11 @@ __attribute__((noreturn)) static void EDNA2_runPhysicalInvoker()
 
 __attribute__((noreturn)) static DWORD EDNA2_callKernelEntryPoint()
 {
-    OutputDebugString(L"BrainLILO: disabling interrupts");
+    outputDebugMessage(L"BrainLILO: disabling interrupts");
     disableInterrupts();
-    OutputDebugString(L"BrainLILO: injecting code to internal ram");
+    outputDebugMessage(L"BrainLILO: injecting code to internal ram");
     EDNA2_installPhysicalInvoker();
-    OutputDebugString(L"BrainLILO: invoking");
+    outputDebugMessage(L"BrainLILO: invoking");
     EDNA2_runPhysicalInvoker();
 }
 
@@ -198,44 +221,43 @@ static bool doLinux()
 
     if (model.length() == 0)
     {
+        outputDebugMessage(L"Failed to match the model name");
         ShowMessage("Failed to match the model name", "BrainLILO", MB_ICONWARNING);
         return false;
     }
 
-    OutputDebugString(L"BrainLILO: Opening Bootloader file...");
+    outputDebugMessage(L"BrainLILO: Opening Bootloader file...");
     fn += model + ".bin";
 
     mbstowcs(wcBuf, fn.c_str(), fn.length());
     hUBoot = CreateFile(wcBuf, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hUBoot == INVALID_HANDLE_VALUE)
     {
-        OutputDebugString(L"Could not open the bootloader");
+        outputDebugMessage(L"Could not open the bootloader: %s", wcBuf);
         ShowMessage("Could not open the bootloader: " + fn, "BrainLILO", MB_ICONWARNING);
         return false;
     }
 
-    swprintf(wcBuf, L"BrainLILO: Bootloader file handle 0x%08x\n", (int)(hUBoot));
-    OutputDebugString(wcBuf);
+    outputDebugMessage(L"BrainLILO: Bootloader file handle 0x%p", hUBoot);
 
     FileSize = GetFileSize(hUBoot, NULL);
-    swprintf(wcBuf, L"BrainLILO: Bootloader file size %d Byte\n", FileSize);
-    OutputDebugString(wcBuf);
+    outputDebugMessage(L"BrainLILO: Bootloader file size %d Byte", FileSize);
 
-    OutputDebugString(L"BrainLILO: Preloading bootloader to 0xa0000000...");
+    outputDebugMessage(L"BrainLILO: Preloading bootloader to 0xa0000000...");
     if (!ReadFile(hUBoot, (void *)0xa0000000, FileSize, &wReadSize, NULL))
     {
-        OutputDebugString(L"Could not read the bootloader");
+        outputDebugMessage(L"Could not read the bootloader");
         ShowMessage("Could not read the bootloader", "BrainLILO", MB_ICONWARNING);
         return false;
     }
-    OutputDebugString(L"BrainLILO: Bootloader copied! Closing file handle...");
+    outputDebugMessage(L"BrainLILO: Bootloader copied! Closing file handle...");
     CloseHandle(hUBoot);
 
-    OutputDebugString(L"BrainLILO: Notifying power off to filesystems...");
+    outputDebugMessage(L"BrainLILO: Notifying power off to filesystems...");
     if (FileSystemPowerFunction)
         FileSystemPowerFunction(FSNOTIFY_POWER_OFF);
 
-    OutputDebugString(L"BrainLILO: Starting bootloader call sequence...");
+    outputDebugMessage(L"BrainLILO: Starting bootloader call sequence...");
     EDNA2_callKernelEntryPoint();
     return true;
 }
@@ -293,6 +315,9 @@ extern "C" BRAINLILODRV_API DWORD LIN_Init(LPCTSTR pContext, DWORD dwBusContext)
     void *ctx;
     ctx = (void *)LocalAlloc(LPTR, sizeof(4));
 
+    screenW = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+    screenH = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+
     return (DWORD)ctx;
 }
 
@@ -300,6 +325,9 @@ extern "C" BRAINLILODRV_API DWORD LIN_Open(DWORD dwData, DWORD dwAccess, DWORD d
 {
 
     void *hnd = (void *)LocalAlloc(LPTR, 4);
+
+    row = 0;
+
     return (DWORD)hnd;
 }
 
