@@ -42,6 +42,7 @@
 #define BRAINLILODRV_API __declspec(dllexport)
 
 #include "BrainLILODrv.h"
+#include "models.h"
 
 #define FILE_DEVICE_POWER FILE_DEVICE_ACPI
 
@@ -185,29 +186,19 @@ __attribute__((noreturn)) static DWORD EDNA2_callKernelEntryPoint()
     EDNA2_runPhysicalInvoker();
 }
 
-static void ShowMessage(std::string msg, std::string title, UINT typ)
+static void ShowMessage(std::wstring msg, std::wstring title, UINT typ)
 {
-    void *bufMsg;
-    void *bufTitle;
-    bufMsg = LocalAlloc(LPTR, msg.length() * sizeof(wchar_t));
-    bufTitle = LocalAlloc(LPTR, title.length() * sizeof(wchar_t));
-    mbstowcs((wchar_t *)bufMsg, msg.c_str(), msg.length());
-    mbstowcs((wchar_t *)bufTitle, title.c_str(), title.length());
-    MessageBox(NULL, (wchar_t *)bufMsg, (wchar_t *)bufTitle, typ);
-    LocalFree(bufMsg);
-    LocalFree(bufTitle);
+    MessageBox(NULL, msg.c_str(), title.c_str(), typ);
 }
 
 static bool doLinux()
 {
-    wchar_t wcBuf[256] = {};
+    std::wifstream iVersion;
+    std::wstring line, model;
+    std::wregex modelRe(L"[A-Z]{2}-[A-Z0-9]+");
+    std::wsmatch match;
 
-    std::ifstream iVersion;
-    std::string line, model;
-    std::regex modelRe("[A-Z]{2}-[A-Z0-9]+");
-    std::smatch match;
-
-    std::string fn("\\Storage Card\\loader\\");
+    std::wstring fn(L"\\Storage Card\\loader\\");
     HANDLE hUBoot;
     DWORD wReadSize;
 
@@ -223,20 +214,30 @@ static bool doLinux()
 
     if (model.length() == 0)
     {
-        outputDebugMessage(L"Failed to match the model name");
-        ShowMessage("Failed to match the model name", "BrainLILO", MB_ICONWARNING);
+        outputDebugMessage(L"BrainLILO: Failed to match the model name");
+        MessageBox(NULL, L"Failed to match the model name", L"BrainLILO", MB_ICONWARNING);
         return false;
     }
 
-    outputDebugMessage(L"BrainLILO: Opening Bootloader file...");
-    fn += model + ".bin";
+    outputDebugMessage(L"BrainLILO: Internal model name: %s", model.c_str());
 
-    mbstowcs(wcBuf, fn.c_str(), fn.length());
-    hUBoot = CreateFile(wcBuf, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    auto iter = models.find(model);
+    if (iter != models.end())
+    {
+        model = iter->second;
+    } else {
+        outputDebugMessage(L"BrainLILO: Internal model name %s is unknown, falling back to u-boot.bin", model.c_str());
+        model = L"u-boot.bin";
+    }
+
+    fn += model;
+    outputDebugMessage(L"BrainLILO: Opening Bootloader file: %s", fn.c_str());
+
+    hUBoot = CreateFile(fn.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hUBoot == INVALID_HANDLE_VALUE)
     {
-        outputDebugMessage(L"Could not open the bootloader: %s", wcBuf);
-        ShowMessage("Could not open the bootloader: " + fn, "BrainLILO", MB_ICONWARNING);
+        outputDebugMessage(L"BrainLILO: Could not open the bootloader: %s", fn.c_str());
+        ShowMessage(L"Could not open the bootloader: " + fn, L"BrainLILO", MB_ICONWARNING);
         return false;
     }
 
@@ -249,7 +250,7 @@ static bool doLinux()
     if (!ReadFile(hUBoot, (void *)0xa0000000, FileSize, &wReadSize, NULL))
     {
         outputDebugMessage(L"Could not read the bootloader");
-        ShowMessage("Could not read the bootloader", "BrainLILO", MB_ICONWARNING);
+        ShowMessage(L"Could not read the bootloader", L"BrainLILO", MB_ICONWARNING);
         return false;
     }
     outputDebugMessage(L"BrainLILO: Bootloader copied! Closing file handle...");
