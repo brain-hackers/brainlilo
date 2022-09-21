@@ -109,7 +109,7 @@ static void EnableMemoryRemapGen1()
     outputDebugMessage(L"BrainLILO: memory remap enable for Gen1\n");
 }
 
-static void EDNA2_installPhysicalInvoker(Brain_Gen gen)
+static void EDNA2_installPhysicalInvoker(BrainGen gen)
 {
     if (gen == Gen1)
     {
@@ -156,7 +156,7 @@ __attribute__((noreturn)) static void EDNA2_runPhysicalInvoker()
         ;
 }
 
-__attribute__((noreturn)) static DWORD EDNA2_callKernelEntryPoint(Brain_Gen gen)
+__attribute__((noreturn)) static DWORD EDNA2_callKernelEntryPoint(BrainGen gen)
 {
     outputDebugMessage(L"BrainLILO: disabling interrupts");
     disableInterrupts();
@@ -173,7 +173,7 @@ static void ShowMessage(std::wstring msg, std::wstring title, UINT typ)
     MessageBox(NULL, msg.c_str(), title.c_str(), typ);
 }
 
-static void SetAddress(Brain_Gen gen)
+static void SetAddress(BrainGen gen)
 {
     switch (gen)
     {
@@ -196,9 +196,9 @@ static void SetAddress(Brain_Gen gen)
     }
 }
 
-static Brain_Gen SelectGen(std::wstring model)
+static BrainGen SelectGen(std::wstring model)
 {
-    Brain_Gen brain_gen = UnknownGen;
+    BrainGen brain_gen = UnknownGen;
     if (model == L"gen1.bin")
     {
         brain_gen = Gen1;
@@ -248,7 +248,7 @@ static bool doLinux()
     std::wstring line, model;
     std::wregex modelRe(L"[A-Z]{2}-[A-Z0-9]+");
     std::wsmatch match;
-    Brain_Gen brain_gen = UnknownGen;
+    BrainGen brain_gen = UnknownGen;
 
     std::wstring fn(L"\\Storage Card\\loader\\");
     HANDLE hUBoot;

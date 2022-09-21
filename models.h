@@ -85,4 +85,4 @@ typedef enum
     Gen3_5,
     Gen3_6,
     Gen3_7,
-} Brain_Gen;
+} BrainGen;
