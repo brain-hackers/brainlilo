@@ -198,48 +198,20 @@ static void SetAddress(BrainGen gen)
 
 static BrainGen SelectGen(std::wstring model)
 {
-    BrainGen brain_gen = UnknownGen;
+    BrainGen brainGen = UnknownGen;
     if (model == L"gen1.bin")
     {
-        brain_gen = Gen1;
+        brainGen = Gen1;
     }
-    else if (model == L"gen2.bin")
+    else if (model == L"u-boot.bin")
     {
-        brain_gen = Gen2;
-    }
-    else if (model == L"gen3_1.bin")
-    {
-        brain_gen = Gen3_1;
-    }
-    else if (model == L"gen3_2.bin")
-    {
-        brain_gen = Gen3_2;
-    }
-    else if (model == L"gen3_3.bin")
-    {
-        brain_gen = Gen3_3;
-    }
-    else if (model == L"gen3_4.bin")
-    {
-        brain_gen = Gen3_4;
-    }
-    else if (model == L"gen3_5.bin")
-    {
-        brain_gen = Gen3_5;
-    }
-    else if (model == L"gen3_6.bin")
-    {
-        brain_gen = Gen3_6;
-    }
-    else if (model == L"gen3_7.bin")
-    {
-        brain_gen = Gen3_7;
+        brainGen = UnknownGen;
     }
     else
     {
-        brain_gen = UnknownGen;
+        brainGen = Gen2Or3;
     }
-    return brain_gen;
+    return brainGen;
 }
 
 static bool doLinux()
