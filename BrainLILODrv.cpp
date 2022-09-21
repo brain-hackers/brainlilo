@@ -260,7 +260,7 @@ static bool doLinux()
     outputDebugMessage(L"BrainLILO: opening Bootloader file: %s", fn.c_str());
 
     brain_gen = SelectGen(model);
-    outputDebugMessage(L"BrainLILO: This is %d generation Brain", brain_gen);
+    outputDebugMessage(L"BrainLILO: this is %d generation Brain", brain_gen);
     SetAddress(brain_gen);
 
     hUBoot = CreateFile(fn.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
