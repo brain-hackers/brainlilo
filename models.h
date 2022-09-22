@@ -72,3 +72,10 @@ const std::map<std::wstring, std::wstring> models = {
     {L"ED-SB7",  L"gen3_7.bin"}, // SB7
     {L"ED-SR3",  L"gen3_7.bin"}, // SR3
 };
+
+typedef enum
+{
+    UnknownGen,
+    Gen1,
+    Gen2Or3
+} BrainGen;
