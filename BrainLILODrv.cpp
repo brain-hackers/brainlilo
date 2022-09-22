@@ -58,9 +58,9 @@ static FileSystemPowerFunctionProc FileSystemPowerFunction;
 
 // DEFAULT(GEN2)
 // VA
-#define BOOTLOADER_PRELOADADDR (uint8_t *)0xa0250000
+#define BOOTLOADER_PRELOADADDR (uint8_t *)0xa0000000
 #define BOOTLOADER_LOADADDR (uint8_t *)0xa0200000
-#define PHYSICAL_INVOKER_INSTALLADDR (uint8_t *)0xb0000000
+#define PHYSICAL_INVOKER_INSTALLADDR (uint8_t *)0xa8000000
 // PA
 #define BOOTLOADER_LOADADDR_PA (uint8_t *)0x40200000
 
