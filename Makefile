@@ -42,8 +42,8 @@ BrainLILO.dll:	BrainLILO.cpp
 				$(CXX) BrainLILO.cpp -o BrainLILO.dll $(DLLFLAGS)
 				$(STRIP) BrainLILO.dll
 				
-BrainLILODrv.dll:	BrainLILODrv.cpp
-				$(CXX) BrainLILODrv.cpp -o BrainLILODrv.dll $(DRVFLAGS)
+BrainLILODrv.dll:	BrainLILODrv.cpp EDNA2_physicalInvoker.S
+				$(CXX) BrainLILODrv.cpp EDNA2_physicalInvoker.S -o BrainLILODrv.dll $(DRVFLAGS)
 				$(STRIP) BrainLILODrv.dll
 
 BrainLILO.exe:	bootloader.cpp

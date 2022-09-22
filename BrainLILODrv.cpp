@@ -47,6 +47,30 @@
 typedef void (*FileSystemPowerFunctionProc)(DWORD);
 static FileSystemPowerFunctionProc FileSystemPowerFunction;
 
+// GEN1
+// VA
+#define BOOTLOADER_PRELOADADDR_GEN1 (uint8_t *)0xa0250000
+#define BOOTLOADER_LOADADDR_GEN1 (uint8_t *)0xa3f00000
+#define PHYSICAL_INVOKER_INSTALLADDR_GEN1 (uint8_t *)0xb0000000
+#define TMPA910_REMAP_REGISTER_ADDRESS (uint32_t *)0xaa000004
+// PA
+#define BOOTLOADER_LOADADDR_GEN1_PA (uint8_t *)0x43f00000
+
+// DEFAULT(GEN2)
+// VA
+#define BOOTLOADER_PRELOADADDR (uint8_t *)0xa0000000
+#define BOOTLOADER_LOADADDR (uint8_t *)0xa0200000
+#define PHYSICAL_INVOKER_INSTALLADDR (uint8_t *)0xa8000000
+// PA
+#define BOOTLOADER_LOADADDR_PA (uint8_t *)0x40200000
+
+// VA
+uint8_t *bootloader_preload_address = NULL;
+uint8_t *bootloader_load_address = NULL;
+uint8_t *physical_invoker_install_address = NULL;
+// PA
+uint8_t *bootloader_load_address_pa = NULL;
+
 DWORD fileSize;
 int row;
 int screenW;
@@ -56,20 +80,14 @@ static void outputDebugMessage(const wchar_t *format, ...)
 {
     wchar_t buffer[256] = {0};
     va_list args;
-    RECT rcScreen = {
-        .left = 0,
-        .top = 0,
-        .right = screenW,
-        .bottom = screenH
-    };
+    RECT rcScreen = {.left = 0, .top = 0, .right = screenW, .bottom = screenH};
 
     va_start(args, format);
     vswprintf(buffer, format, args);
     va_end(args);
 
     OutputDebugString(buffer);
-    ExtTextOut(GetDC(NULL), 0, row * 14, ETO_CLIPPED, &rcScreen,
-        buffer, wcslen(buffer), NULL);
+    ExtTextOut(GetDC(NULL), 0, row * 14, ETO_CLIPPED, &rcScreen, buffer, wcslen(buffer), NULL);
 
     row++;
 }
@@ -83,42 +101,23 @@ static void disableInterrupts()
                      : "r0");
 }
 
-static void EDNA2_physicalInvoker()
+extern "C" void EDNA2_physicalInvoker();
+
+static void EnableMemoryRemapGen1()
 {
-    // r0-r7=params
-    // r8=proc address
-    asm volatile("nop\n" // who cares interrupt vectors?
-                 "nop\n"
-                 "nop\n"
-                 "nop\n"
-                 "nop\n"
-                 "nop\n"
-                 "nop\n"
-                 "nop\n"
-                 "nop\n"
-                 "nop\n"
-                 "msr	cpsr_c, #211\n" // to supervisor mode
-                 "mov	r9, #0\n"
-                 "mcr	p15,0,r9,c13,c0,0\n" // clear fcse PID
-                 "mrc	p15,0,r9,c1,c0,0\n"  // read ctrl regs
-                 "bic	r9, r9, #5\n"        // disable MMU/DCache
-                 "bic	r9, r9, #4096\n"     // disable ICache
-                 "orr	r9, r9, #8192\n"     // and reset vectors to upper
-                 "mcr	p15,0,r9,c1,c0,0\n"  // write ctrl regs
-                 "mov	r9, #0\n"
-                 "mcr	p15,0,r9,c7,c7,0\n" // invalidate cache
-                 "mcr	p15,0,r9,c8,c7,0\n" // invalidate tlb
-                 "mov	pc, r8\n"
-                 "nop\n"
-                 "nop\n");
+    *TMPA910_REMAP_REGISTER_ADDRESS = 1;
+    outputDebugMessage(L"BrainLILO: memory remap enable for Gen1\n");
 }
 
-static void EDNA2_installPhysicalInvoker()
+static void EDNA2_installPhysicalInvoker(BrainGen gen)
 {
-    void *ptr = (void *)0xa8000000;
-    outputDebugMessage(L"BrainLILO: copying PhysicalInvoker to 0x%p from 0x%p\n",
-        ptr, &EDNA2_physicalInvoker);
-    memcpy(ptr, (const void *)&EDNA2_physicalInvoker, 64 * 4);
+    if (gen == Gen1)
+    {
+        EnableMemoryRemapGen1();
+    }
+    outputDebugMessage(L"BrainLILO: copying PhysicalInvoker to 0x%p from 0x%p\n", physical_invoker_install_address,
+                       &EDNA2_physicalInvoker);
+    memcpy(physical_invoker_install_address, (const void *)&EDNA2_physicalInvoker, 64 * 4);
     // clearCache();
 }
 
@@ -131,8 +130,7 @@ __attribute__((noreturn)) static void EDNA2_runPhysicalInvoker()
                  "mcr	p15,0,r0,c1,c0,0\n" // write ctrl regs
     );
 
-    for (DWORD i = 0; i < fileSize; i++)
-        *((char *)(0xa0200000 + i)) = *((char *)(0xa0000000 + i));
+    memcpy(bootloader_load_address, bootloader_preload_address, fileSize);
 
     asm volatile("ldr	r0, =0x0000\n"
                  "ldr	r1, =0x0000\n"
@@ -142,26 +140,28 @@ __attribute__((noreturn)) static void EDNA2_runPhysicalInvoker()
                  "ldr	r5, =0x0000\n"
                  "ldr	r6, =0x0000\n"
                  "ldr	r7, =0x0000\n"
-                 "ldr	r8, =0x40200000\n"
+                 "mov	r8, %[textbase]\n"
                  "ldr	r9, =0x0000\n"
 
                  "mrc	p15,0,r10,c1,c0,0\n" // read ctrl regs
                  "bic	r10, r10, #5\n"      // disable MMU/DCache
                  "mcr	p15,0,r10,c1,c0,0\n" // write ctrl regs
                  "swi	#0\n"                // jump!
-    );
+                 :                           /* no outputs */
+                 : [textbase] "r"(bootloader_load_address_pa)
+                 : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10");
 
     // never reach here
     while (true)
         ;
 }
 
-__attribute__((noreturn)) static DWORD EDNA2_callKernelEntryPoint()
+__attribute__((noreturn)) static DWORD EDNA2_callKernelEntryPoint(BrainGen gen)
 {
     outputDebugMessage(L"BrainLILO: disabling interrupts");
     disableInterrupts();
     outputDebugMessage(L"BrainLILO: injecting code to internal ram");
-    EDNA2_installPhysicalInvoker();
+    EDNA2_installPhysicalInvoker(gen);
     outputDebugMessage(L"BrainLILO: invoking");
     Sleep(1000);
 
@@ -173,12 +173,54 @@ static void ShowMessage(std::wstring msg, std::wstring title, UINT typ)
     MessageBox(NULL, msg.c_str(), title.c_str(), typ);
 }
 
+static void SetAddress(BrainGen gen)
+{
+    switch (gen)
+    {
+    case Gen1:
+        // VA
+        bootloader_preload_address = BOOTLOADER_PRELOADADDR_GEN1;
+        bootloader_load_address = BOOTLOADER_LOADADDR_GEN1;
+        physical_invoker_install_address = PHYSICAL_INVOKER_INSTALLADDR_GEN1;
+        // PA
+        bootloader_load_address_pa = BOOTLOADER_LOADADDR_GEN1_PA;
+        break;
+    default:
+        // Gen2?
+        // VA
+        bootloader_preload_address = BOOTLOADER_PRELOADADDR;
+        bootloader_load_address = BOOTLOADER_LOADADDR;
+        physical_invoker_install_address = PHYSICAL_INVOKER_INSTALLADDR;
+        // PA
+        bootloader_load_address_pa = BOOTLOADER_LOADADDR_PA;
+    }
+}
+
+static BrainGen SelectGen(std::wstring model)
+{
+    BrainGen brainGen = UnknownGen;
+    if (model == L"gen1.bin")
+    {
+        brainGen = Gen1;
+    }
+    else if (model == L"u-boot.bin")
+    {
+        brainGen = UnknownGen;
+    }
+    else
+    {
+        brainGen = Gen2Or3;
+    }
+    return brainGen;
+}
+
 static bool doLinux()
 {
     std::wifstream iVersion;
     std::wstring line, model;
     std::wregex modelRe(L"[A-Z]{2}-[A-Z0-9]+");
     std::wsmatch match;
+    BrainGen brain_gen = UnknownGen;
 
     std::wstring fn(L"\\Storage Card\\loader\\");
     HANDLE hUBoot;
@@ -207,13 +249,18 @@ static bool doLinux()
     if (iter != models.end())
     {
         model = iter->second;
-    } else {
+    }
+    else
+    {
         outputDebugMessage(L"BrainLILO: internal model name %s is unknown, falling back to u-boot.bin", model.c_str());
         model = L"u-boot.bin";
     }
 
     fn += model;
     outputDebugMessage(L"BrainLILO: opening Bootloader file: %s", fn.c_str());
+
+    brain_gen = SelectGen(model);
+    SetAddress(brain_gen);
 
     hUBoot = CreateFile(fn.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hUBoot == INVALID_HANDLE_VALUE)
@@ -228,8 +275,8 @@ static bool doLinux()
     fileSize = GetFileSize(hUBoot, NULL);
     outputDebugMessage(L"BrainLILO: bootloader file size %d Byte", fileSize);
 
-    outputDebugMessage(L"BrainLILO: preloading bootloader to 0x%p...", 0xa0000000);
-    if (!ReadFile(hUBoot, (void *)0xa0000000, fileSize, &wReadSize, NULL))
+    outputDebugMessage(L"BrainLILO: preloading bootloader to 0x%p...", bootloader_preload_address);
+    if (!ReadFile(hUBoot, (void *)bootloader_preload_address, fileSize, &wReadSize, NULL))
     {
         outputDebugMessage(L"BrainLILO: could not read the bootloader");
         ShowMessage(L"Could not read the bootloader", L"BrainLILO", MB_ICONWARNING);
@@ -243,7 +290,7 @@ static bool doLinux()
         FileSystemPowerFunction(FSNOTIFY_POWER_OFF);
 
     outputDebugMessage(L"BrainLILO: starting bootloader call sequence...");
-    EDNA2_callKernelEntryPoint();
+    EDNA2_callKernelEntryPoint(brain_gen);
     return true;
 }
 
