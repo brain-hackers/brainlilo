@@ -1,5 +1,3 @@
-// This file is in public domain.
-
 #pragma once
 #include <winioctl.h>
 
