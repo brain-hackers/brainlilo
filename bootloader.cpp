@@ -1,5 +1,3 @@
-// This file is in public domain.
-
 #include <windows.h>
 
 int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPTSTR lpCmd, int nShow)
