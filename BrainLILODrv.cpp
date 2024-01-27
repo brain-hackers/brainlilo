@@ -4,6 +4,12 @@
 #include <stdlib.h>
 #include <windows.h>
 
+#if defined(VERSION_MAJOR) && defined(VERSION_MINOR) && defined(VERSION_PATCH)
+#define CONFIG_VERSION TEXT(VERSION_MAJOR) L"." TEXT(VERSION_MINOR) L"." TEXT(VERSION_PATCH)
+#else
+#define CONFIG_VERSION L"unspecified"
+#endif
+
 #define FSNOTIFY_POWER_OFF 1
 #define FSNOTIFY_POWER_ON 0
 
@@ -193,6 +199,8 @@ static bool doLinux()
     std::wstring fn(L"\\Storage Card\\loader\\");
     HANDLE hUBoot;
     DWORD wReadSize;
+
+    outputDebugMessage(L"BrainLILO: Version " CONFIG_VERSION);
 
     iVersion.open("\\NAND\\version.txt");
     while (getline(iVersion, line))
